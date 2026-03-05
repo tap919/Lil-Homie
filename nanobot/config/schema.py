@@ -347,6 +347,70 @@ class ToolsConfig(Base):
     mcp_servers: dict[str, MCPServerConfig] = Field(default_factory=dict)
 
 
+# ---------------------------------------------------------------------------
+# Lil Homie — adaptive music/marketing/content agent
+# ---------------------------------------------------------------------------
+
+
+class LilHomieFullModeConfig(Base):
+    """Configuration for full mode (flagship devices: 12 GB+ RAM, 8-core, NPU, Android 14+)."""
+
+    llm: str = "ollama/phi3:mini-q4"
+    cron_jobs: str = "all"  # "all" enables every scheduled job
+    tools: list[str] = Field(
+        default_factory=lambda: ["ffmpeg", "twitter", "youtube", "git"]
+    )
+    max_concurrent: int = 4
+
+
+class LilHomieBasicModeConfig(Base):
+    """Configuration for basic mode (mid-range devices: 6–12 GB RAM, 6-core)."""
+
+    llm: str = "ollama/qwen2.5:0.5b-q4"
+    cloud_fallback_llm: str = "gpt-4o-mini"
+    cron_jobs: list[str] = Field(
+        default_factory=lambda: ["promo-tweets-only", "daily-backup"]
+    )
+    tools: list[str] = Field(default_factory=lambda: ["twitter-basic", "email-report"])
+    max_concurrent: int = 1
+
+
+class LilHomieModesConfig(Base):
+    """Mode-specific configuration bundles for Lil Homie."""
+
+    full: LilHomieFullModeConfig = Field(default_factory=LilHomieFullModeConfig)
+    basic: LilHomieBasicModeConfig = Field(default_factory=LilHomieBasicModeConfig)
+    unsupported_message: str = "Upgrade phone for Lil Homie cron/tools (needs 6 GB+ RAM)"
+
+
+class HardwareDetectionConfig(Base):
+    """Hardware auto-detection settings for adaptive mode selection."""
+
+    enabled: bool = True
+    check_on_start: bool = True
+
+    # Thresholds for full mode
+    full_mode_ram_gb: float = 12.0
+    full_mode_cpu_cores: int = 8
+    full_mode_require_npu: bool = True
+    full_mode_storage_gb: float = 50.0
+    full_mode_android_version: int = 14
+
+    # Thresholds for basic mode (lower bound; upper bound is full_mode_ram_gb)
+    basic_mode_ram_gb: float = 6.0
+    basic_mode_cpu_cores: int = 6
+
+
+class LilHomieConfig(Base):
+    """Top-level Lil Homie agent configuration."""
+
+    hardware_detection: HardwareDetectionConfig = Field(
+        default_factory=HardwareDetectionConfig
+    )
+    modes: LilHomieModesConfig = Field(default_factory=LilHomieModesConfig)
+    android_storage_dir: str = "/storage/emulated/0/Android/data/lil-homie"
+
+
 class Config(BaseSettings):
     """Root configuration for nanobot."""
 
@@ -355,6 +419,7 @@ class Config(BaseSettings):
     providers: ProvidersConfig = Field(default_factory=ProvidersConfig)
     gateway: GatewayConfig = Field(default_factory=GatewayConfig)
     tools: ToolsConfig = Field(default_factory=ToolsConfig)
+    lil_homie: LilHomieConfig = Field(default_factory=LilHomieConfig)
 
     @property
     def workspace_path(self) -> Path:

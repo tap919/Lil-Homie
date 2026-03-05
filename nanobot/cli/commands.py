@@ -195,6 +195,85 @@ def onboard():
     console.print("\n[dim]Want Telegram/WhatsApp? See: https://github.com/HKUDS/nanobot#-chat-apps[/dim]")
 
 
+# ============================================================================
+# Lil Homie — Hardware Detection
+# ============================================================================
+
+
+@app.command(name="detect-mode")
+def detect_mode(
+    json_output: bool = typer.Option(False, "--json", help="Output as JSON"),
+) -> None:
+    """Detect device hardware and select the Lil Homie operating mode.
+
+    Reads /proc/meminfo (RAM), /proc/cpuinfo (CPU cores), and Android system
+    properties (SoC model, Android version) to determine whether this device
+    can run in full, basic, or unsupported mode.
+
+    \b
+    Modes:
+      full        12 GB+ RAM, 8+ cores, NPU present, Android 14+
+      basic       6-12 GB RAM, 6+ cores -- text promos & backup only
+      unsupported < 6 GB RAM -- chat-only, upgrade recommended
+    """
+    import json as _json
+
+    from nanobot.android.hardware import DeviceMode, detect_hardware, select_mode
+
+    info = detect_hardware()
+    mode = select_mode(info)
+
+    if json_output:
+        data = {
+            "mode": mode.value,
+            "ram_gb": round(info.ram_gb, 2),
+            "cpu_cores": info.cpu_cores,
+            "npu_present": info.npu_present,
+            "android_version": info.android_version,
+            "soc_model": info.soc_model,
+            "storage_gb": round(info.storage_gb, 2),
+        }
+        console.print(_json.dumps(data, indent=2))
+        return
+
+    # Human-readable output
+    mode_colours = {
+        DeviceMode.FULL: "green",
+        DeviceMode.BASIC: "yellow",
+        DeviceMode.UNSUPPORTED: "red",
+    }
+    colour = mode_colours[mode]
+
+    console.print(f"\n[bold]{__logo__} Lil Homie — Hardware Detection[/bold]\n")
+
+    table = Table(show_header=False, box=None, padding=(0, 2))
+    table.add_column("Key", style="dim")
+    table.add_column("Value")
+
+    table.add_row("RAM", f"{info.ram_gb:.1f} GB")
+    table.add_row("CPU cores", str(info.cpu_cores))
+    table.add_row("NPU detected", "yes" if info.npu_present else "no")
+    table.add_row("Android version", str(info.android_version) if info.android_version else "unknown")
+    table.add_row("SoC model", info.soc_model or "unknown")
+    if info.storage_gb:
+        table.add_row("Storage", f"{info.storage_gb:.1f} GB")
+
+    console.print(table)
+    console.print()
+    console.print(f"Selected mode: [{colour}][bold]{mode.value.upper()}[/bold][/{colour}]")
+
+    if mode == DeviceMode.FULL:
+        console.print("[green]✓[/green] Full cron/tools enabled — local LLM (phi3:mini-q4), FFmpeg, video.")
+    elif mode == DeviceMode.BASIC:
+        console.print(
+            "[yellow]✓[/yellow] Basic mode active — text promos & daily backup only.\n"
+            "  [dim]Lil Homie basic mode active[/dim]"
+        )
+    else:
+        console.print(
+            "[red]✗[/red] Unsupported: upgrade to a phone with 6 GB+ RAM for cron/tools."
+        )
+    console.print()
 
 
 
